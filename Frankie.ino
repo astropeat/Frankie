@@ -13,6 +13,7 @@ int led = 13;
 boolean ledState = false;
 byte headingData[2];
 int i, headingValue;
+Packet data('C', 4); // create a packet with type C -compass- and maximum size 4
 
 #define MOTOR_NEUTRAL 92
 #define STEER_NEUTRAL 88
@@ -62,6 +63,8 @@ void setup() {
   btooth.setCallback(linkCallback);
   motor.attach(3);
   steering.attach(2);
+  motor.write( MOTOR_NEUTRAL );
+  steering.write( STEER_NEUTRAL );
   Serial1.begin(57600);
     
   // Attach compass!
@@ -99,10 +102,12 @@ void loop() {
     i++;
   }
   headingValue = headingData[0]*256 + headingData[1];  // Put the MSB and LSB together
+  data.append(headingValue); // adds heading value to our packet
+  btooth.send(data); // sends 'data'
   Serial.print("Current heading: ");
   Serial.print(int (headingValue / 10));     // The whole number part of the heading
   Serial.print(".");
   Serial.print(int (headingValue % 10));     // The fractional part of the heading
   Serial.println(" degrees");
-  delay(500);
+  delay(10);
 }
