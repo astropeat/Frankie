@@ -2,6 +2,8 @@
 #include <Servo.h>
 #include <Wire.h>
 
+
+
 Protocol btooth(Serial1); // create a protocol object called 'link'
 
 Servo motor;
@@ -15,7 +17,7 @@ byte headingData[2];
 int i, headingValue;
 Packet data('C', 4); // create a packet with type C -compass- and maximum size 4
 
-#define MOTOR_NEUTRAL 92
+#define MOTOR_NEUTRAL 93
 #define STEER_NEUTRAL 88
 
 void linkCallback(Packet &p) {
