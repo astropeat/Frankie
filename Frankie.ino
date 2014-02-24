@@ -1,8 +1,8 @@
 #include <Protocol.h>
 #include <Servo.h>
 #include <Wire.h>
-
-
+#include "TinyGPS++.h"
+TinyGPSPlus gps;
 
 Protocol btooth(Serial1); // create a protocol object called 'link'
 
@@ -78,9 +78,8 @@ void setup() {
   pinMode(led, OUTPUT);      // Set the LED pin as output
   Wire.begin();
   
-  digitalWrite(led, HIGH);
-  delay(500);
-  digitalWrite(led, LOW);
+  //Attach GPS
+  Serial3.begin(4800);
 }
 
 void loop() {
@@ -112,4 +111,15 @@ void loop() {
   Serial.print(int (headingValue % 10));     // The fractional part of the heading
   Serial.println(" degrees");
   delay(10);
+  
+  
+  //GPS
+  while (Serial3.available() > 0)
+    gps.encode(Serial3.read());
+    
+  if (gps.location.isUpdated()){
+    Serial.print("LAT=");  Serial.println(gps.location.lat());
+    Serial.print("LONG="); Serial.println(gps.location.lng());
+    Serial.print("ALT=");  Serial.println(gps.altitude.meters());
+  }
 }
