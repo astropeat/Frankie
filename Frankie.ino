@@ -15,7 +15,11 @@ int led = 13;
 boolean ledState = false;
 byte headingData[2];
 int i, headingValue;
-Packet data('C', 4); // create a packet with type C -compass- and maximum size 4
+Packet compass_data('C', 4); // create a packet with type C -compass- and maximum size 4
+Packet gps_data('G', 12);
+
+uint8_t deadman = 0;
+uint8_t autonomous = 0;
 
 #define MOTOR_NEUTRAL 93
 #define STEER_NEUTRAL 88
@@ -27,15 +31,24 @@ void linkCallback(Packet &p) {
       {
         int8_t spee = p.reads8();
         int8_t dir = p.reads8();
-        motor.write( spee + MOTOR_NEUTRAL );
-        steering.write( dir + STEER_NEUTRAL );
+        if( deadman != 0 && autonomous == 0 ) {
+          motor.write( spee + MOTOR_NEUTRAL );
+          steering.write( dir + STEER_NEUTRAL );
+        }
       }
       break;
-      /*
+    
+    case 'A':
+    //Autonomous mode
+      {
+       autonomous = p.reads8();
+      }
+      break;
+     
     case 'D': 
     //dead man's switch
       {
-        int8_t deadman = p.reads8();
+        deadman = p.reads8();
         if (deadman == 0)
         {
           motor.write(MOTOR_NEUTRAL);
@@ -43,7 +56,7 @@ void linkCallback(Packet &p) {
         }
       }
       break;
-      */
+        
       /*
     case 'R': 
     //route- latitude, longitude, radius of each step in route
@@ -90,7 +103,7 @@ void loop() {
   Wire.beginTransmission(slaveAddress);
   Wire.write("A");              // The "Get Data" command
   Wire.endTransmission();
-  delay(10);                   // The HMC6352 needs at least a 70us (microsecond) delay
+  delay(1);                   // The HMC6352 needs at least a 70us (microsecond) delay
   // after this command.  Using 10ms just makes it safe
   // Read the 2 heading bytes, MSB first
   // The resulting 16bit word is the compass heading in 10th's of a degree
@@ -103,8 +116,10 @@ void loop() {
     i++;
   }
   headingValue = headingData[0]*256 + headingData[1];  // Put the MSB and LSB together
-  data.append(headingValue); // adds heading value to our packet
-  btooth.send(data); // sends 'data'
+  
+  compass_data.append(headingValue); // adds heading value to our packet
+  btooth.send(compass_data); // sends 'compass_data'
+   
   Serial.print("Current heading: ");
   Serial.print(int (headingValue / 10));     // The whole number part of the heading
   Serial.print(".");
@@ -118,8 +133,27 @@ void loop() {
     gps.encode(Serial3.read());
     
   if (gps.location.isUpdated()){
+    gps_data.append((int)(gps.location.lat() * 1000000)); // Adds Latitude
+    gps_data.append((int)(gps.location.lng() * 1000000)); // Adds Longitude
+    gps_data.append(gps.satellites.value()); // Adds # satellites
+
+    btooth.send(gps_data); // sends 'gps_data'
+        
     Serial.print("LAT=");  Serial.println(gps.location.lat());
     Serial.print("LONG="); Serial.println(gps.location.lng());
-    Serial.print("ALT=");  Serial.println(gps.altitude.meters());
+    Serial.print("NUM_SAT=");  Serial.println(gps.satellites.value());
   }
+  
+  
+  //DO A THING
+  //GO NORTH
+   if (autonomous != 0 && deadman != 0) {
+      if ((int (headingValue /10)) < 180) {
+        steering.write( STEER_NEUTRAL - 24 );
+        motor.write( MOTOR_NEUTRAL + 3 );
+      } else {
+        steering.write( STEER_NEUTRAL + 24 );
+        motor.write( MOTOR_NEUTRAL +3 );
+      }
+    }
 }
