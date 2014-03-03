@@ -80,19 +80,19 @@ void setup() {
   steering.attach(2);
   motor.write( MOTOR_NEUTRAL );
   steering.write( STEER_NEUTRAL );
-  Serial1.begin(57600);
+  Serial1.begin(57600);  //bluetooth
     
   // Attach compass!
   // Shift the device's documented slave address (0x42) 1 bit right
   // This compensates for how the TWI library only wants the
   // 7 most significant bits (with the high bit padded with 0)
   slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
-  Serial.begin(9600);
+  Serial.begin(9600);    //debug
   pinMode(led, OUTPUT);      // Set the LED pin as output
   Wire.begin();
   
   //Attach GPS
-  Serial3.begin(4800);
+  Serial3.begin(4800);   //gps
 }
 
 void loop() {
@@ -148,12 +148,23 @@ void loop() {
   //DO A THING
   //GO NORTH
    if (autonomous != 0 && deadman != 0) {
-      if ((int (headingValue /10)) < 180) {
-        steering.write( STEER_NEUTRAL - 24 );
-        motor.write( MOTOR_NEUTRAL + 3 );
+     int headingComputed = (headingValue/10);
+      if (headingComputed < 180) {
+        if (headingComputed >= 24) {
+          steering.write( STEER_NEUTRAL - 24 );
+        } else {
+          steering.write( STEER_NEUTRAL - headingComputed );
+        }
+        motor.write( MOTOR_NEUTRAL + 8 );
       } else {
-        steering.write( STEER_NEUTRAL + 24 );
-        motor.write( MOTOR_NEUTRAL +3 );
+        headingComputed = headingComputed - 360;
+        if (headingComputed < -24) {
+          steering.write( STEER_NEUTRAL + 24 );
+          motor.write( MOTOR_NEUTRAL + 8 );
+        } else {
+          steering.write( STEER_NEUTRAL - headingComputed );
+          motor.write( MOTOR_NEUTRAL + 8);
+        }
       }
-    }
+   }
 }
