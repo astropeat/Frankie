@@ -17,6 +17,9 @@ byte headingData[2];
 int i, headingValue;
 Packet compass_data('C', 4); // create a packet with type C -compass- and maximum size 4
 Packet gps_data('G', 12);
+int desired_heading = 90;
+double Blue_Post_Lat = 37.428467;    // defines latitude & longitude of blue post in engineering quad, Stanford.
+double Blue_Post_Long = -122.17465;
 
 uint8_t deadman = 0;
 uint8_t autonomous = 0;
@@ -128,6 +131,9 @@ void loop() {
   delay(10);
   
   
+  Serial.print("Speed: ");
+  Serial.println(motor.read());
+  
   //GPS
   while (Serial3.available() > 0)
     gps.encode(Serial3.read());
@@ -142,14 +148,34 @@ void loop() {
     Serial.print("LAT=");  Serial.println(gps.location.lat());
     Serial.print("LONG="); Serial.println(gps.location.lng());
     Serial.print("NUM_SAT=");  Serial.println(gps.satellites.value());
-  }
+    /*
+   double distance = gps.distance(
+      gps.location.lat(),
+      gps.location.lng(),
+      EIFFEL_TOWER_LAT,
+      EIFFEL_TOWER_LNG)*/
+    
+    double courseTo = gps.courseTo(
+        gps.location.lat(),               //This here reads current location and writes a course to Blue Post.
+        gps.location.lng(),
+        Blue_Post_Lat,
+        Blue_Post_Long);
+        
+    desired_heading = courseTo;
+    
+    Serial.println(desired_heading); 
+    }
   
   
   //DO A THING
   //GO NORTH
    if (autonomous != 0 && deadman != 0) {
+     
      int headingComputed = (headingValue/10);
-      if (headingComputed < 180) {
+     headingComputed -= desired_heading;
+     
+      if (headingComputed < 180 && headingComputed > 0) {
+        // turn left
         if (headingComputed >= 24) {
           steering.write( STEER_NEUTRAL - 24 );
         } else {
@@ -158,6 +184,8 @@ void loop() {
         motor.write( MOTOR_NEUTRAL + 8 );
       } else {
         headingComputed = headingComputed - 360;
+        
+        // turn right
         if (headingComputed < -24) {
           steering.write( STEER_NEUTRAL + 24 );
           motor.write( MOTOR_NEUTRAL + 8 );
@@ -166,5 +194,6 @@ void loop() {
           motor.write( MOTOR_NEUTRAL + 8);
         }
       }
+      
    }
 }
