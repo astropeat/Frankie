@@ -18,8 +18,13 @@ int i, headingValue;
 Packet compass_data('C', 4); // create a packet with type C -compass- and maximum size 4
 Packet gps_data('G', 12);
 int desired_heading = 90;
+double distance = 0;
 double Blue_Post_Lat = 37.428467;    // defines latitude & longitude of blue post in engineering quad, Stanford.
 double Blue_Post_Long = -122.17465;
+
+
+
+
 
 uint8_t deadman = 0;
 uint8_t autonomous = 0;
@@ -147,16 +152,16 @@ void loop() {
         
     Serial.print("LAT=");  Serial.println(gps.location.lat());
     Serial.print("LONG="); Serial.println(gps.location.lng());
-    Serial.print("NUM_SAT=");  Serial.println(gps.satellites.value());
-    /*
-   double distance = gps.distance(
-      gps.location.lat(),
+    Serial.print("NUM_SAT=");  Serial.println(gps.satellites.value());   
+    
+    distance = gps.distanceBetween(
+      gps.location.lat(),                  //Distance between current location and desired location (Blue Post).
       gps.location.lng(),
-      EIFFEL_TOWER_LAT,
-      EIFFEL_TOWER_LNG)*/
+      Blue_Post_Lat,
+      Blue_Post_Long);
     
     double courseTo = gps.courseTo(
-        gps.location.lat(),               //This here reads current location and writes a course to Blue Post.
+        gps.location.lat(),               //This here reads current location and writes a course to desired location (Blue Post).
         gps.location.lng(),
         Blue_Post_Lat,
         Blue_Post_Long);
@@ -181,19 +186,21 @@ void loop() {
         } else {
           steering.write( STEER_NEUTRAL - headingComputed );
         }
-        motor.write( MOTOR_NEUTRAL + 8 );
       } else {
         headingComputed = headingComputed - 360;
         
         // turn right
         if (headingComputed < -24) {
           steering.write( STEER_NEUTRAL + 24 );
-          motor.write( MOTOR_NEUTRAL + 8 );
         } else {
           steering.write( STEER_NEUTRAL - headingComputed );
-          motor.write( MOTOR_NEUTRAL + 8);
         }
       }
-      
+
+      if (distance <= 3.0){
+        motor.write(MOTOR_NEUTRAL); // stop
+      } else {
+        motor.write( MOTOR_NEUTRAL + 8);  //go
+      }
    }
 }
