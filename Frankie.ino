@@ -37,17 +37,18 @@ Waypoint moffet_park[] = {
 
 Waypoint sparkfun_2014[] = {
   //{ 40.071374969556928, -105.22978898137808 },   // start/finish line, SF given
-  //{ 40.071381, -105.229795 }, //start finish mine
+  { 40.071381, -105.229795 }, //start finish mine
   //{ 40.071258964017034, -105.23002602159977 },   // first corner, SF given
   { 40.071268, -105.230119}, // first turn mine
-  //{ 40.07075596600771,  -105.22971798665822 },   // second corner
-  { 40.076743, -105.229799}, // second turn mine
+  { 40.07075596600771,  -105.22971798665822 },   // second corner, SF given
+  //{ 40.076743, -105.229799}, // second turn mine
   { 40.070829978212714, -105.22953098639846 },   // hoop, SF given
-  { 40.070976996794343, -105.22919101640582 },   // third corner, SF given
-  //{ 40.070954, -105.229212}, // third turn mine
+  //{ 40.070976996794343, -105.22919101640582 },   // third corner, SF given
+  { 40.070954, -105.229212}, // third turn mine
   { 40.071081016212702, -105.22919897921383 },   // ramp, SF given
-  { 40.071331970393658, -105.22946602664888 },   // fourth corner, SF given
-  //{ 40.071440, -105.229496}, 
+  { 40.071284, -105.229419 },
+  //{ 40.071331970393658, -105.22946602664888 },   // fourth corner, SF given
+  { 40.071440, -105.229496}, //fourth turn mine
   //{ 40.071374969556928, -105.22978898137808 },   // start/finish line
   { 40.071381, -105.229795 }, //start finish mine
 
@@ -61,6 +62,7 @@ double target_long = sparkfun_2014[0].longitude;
 
 
 uint8_t deadman = 0;
+long last_deadman = 0;
 uint8_t autonomous = 0;
 
 #define MOTOR_NEUTRAL 93
@@ -96,6 +98,7 @@ void linkCallback(Packet &p) {
           motor.write(MOTOR_NEUTRAL);
           steering.write(STEER_NEUTRAL);
         }
+        last_deadman = millis();
       }
       break;
         
@@ -167,15 +170,17 @@ void loop() {
   compass_data.append(headingValue); // adds heading value to our packet
   btooth.send(compass_data); // sends 'compass_data'
   
-  /* 
-  Serial.print("Current heading: ");
-  Serial.print(int (headingValue / 10));     // The whole number part of the heading
-  Serial.print(".");
-  Serial.print(int (headingValue % 10));     // The fractional part of the heading
-  Serial.println(" degrees");
-  delay(10);
+  if( i < 2 ) Serial.println("Failed to read compass");
+  else {
+    Serial.print("Current heading: ");
+    Serial.print(int (headingValue / 10));     // The whole number part of the heading
+    Serial.print(".");
+    Serial.print(int (headingValue % 10));     // The fractional part of the heading
+    Serial.println(" degrees");
+    //delay(10);
+  }
   
-  
+  /*
   Serial.print("Speed: ");
   Serial.println(motor.read());
   */
@@ -183,7 +188,7 @@ void loop() {
   //GPS
   while (Serial3.available() > 0) {
     int c = Serial3.read();
-    Serial.print((char)c);
+    //Serial.print((char)c);
     gps.encode(c);
   }
     
@@ -196,7 +201,7 @@ void loop() {
         
     Serial.print("LAT=");  Serial.println(gps.location.lat()*1000000);
     Serial.print("LONG="); Serial.println(gps.location.lng()*1000000);
-    Serial.print("NUM_SAT=");  Serial.println(gps.satellites.value());   
+    //Serial.print("NUM_SAT=");  Serial.println(gps.satellites.value());   
     
     distance = gps.distanceBetween(
       gps.location.lat(),                  //Distance between current location and desired location (Blue Post).
@@ -204,7 +209,7 @@ void loop() {
       target_lat,
       target_long);
     if (distance <= 2.5){
-      if (current_waypoint < 7){  //while position in array less than 5 go to next waypoint.
+      if (current_waypoint < 9){  //while position in array less than 5 go to next waypoint.
         current_waypoint++;
       }
       //target_lat = moffet_park[current_waypoint].latitude;
@@ -230,6 +235,12 @@ void loop() {
     Serial.println(desired_heading); 
   }
   
+  /*
+  if( millis() - last_deadman > 500 ) {
+    deadman = 0;
+    motor.write(MOTOR_NEUTRAL);
+    steering.write(STEER_NEUTRAL);
+  }*/
   
   //DO A THING
   //GO FORTH
@@ -263,12 +274,13 @@ void loop() {
         }
       }
 
-      if (distance <= 3){
-        motor.write(MOTOR_NEUTRAL+6); // stop
-      } else if (distance >3 && distance <= 8){
+      if //(distance <= 3){
+        //motor.write(MOTOR_NEUTRAL); // stop
+      //} else if 
+      (distance >3 && distance <= 8){
         motor.write(MOTOR_NEUTRAL + 8);
       } else {
-        motor.write( MOTOR_NEUTRAL + 12);  //go
+        motor.write( MOTOR_NEUTRAL + 10);  //go
       }
    }
 }
