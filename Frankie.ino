@@ -8,7 +8,6 @@ Protocol btooth(Serial1); // create a protocol object called 'link'
 
 Servo motor;
 Servo steering;
-
 int HMC6352Address = 0x42;
 int slaveAddress;
 int led = 13;
@@ -19,11 +18,46 @@ Packet compass_data('C', 4); // create a packet with type C -compass- and maximu
 Packet gps_data('G', 12);
 int desired_heading = 90;
 double distance = 0;
-double Blue_Post_Lat = 37.428467;    // defines latitude & longitude of blue post in engineering quad, Stanford.
-double Blue_Post_Long = -122.17465;
+//double Blue_Post_Lat = 37.428467;    // defines latitude & longitude of blue post in engineering quad, Stanford.
+//double Blue_Post_Long = -122.17465;
+int current_waypoint = 0;
+struct Waypoint {
+  double latitude;
+  double longitude;
+};
+/*
+Waypoint moffet_park[] = {
+  { 37.401132, -122.073164 },
+  { 37.401231, -122.073020 },
+  { 37.401387, -122.073115 },
+  { 37.401237, -122.073303 },
+  { 37.401132, -122.073164 },
+};
+*/
 
+Waypoint sparkfun_2014[] = {
+  //{ 40.071374969556928, -105.22978898137808 },   // start/finish line, SF given
+  //{ 40.071381, -105.229795 }, //start finish mine
+  //{ 40.071258964017034, -105.23002602159977 },   // first corner, SF given
+  { 40.071268, -105.230119}, // first turn mine
+  //{ 40.07075596600771,  -105.22971798665822 },   // second corner
+  { 40.076743, -105.229799}, // second turn mine
+  { 40.070829978212714, -105.22953098639846 },   // hoop, SF given
+  { 40.070976996794343, -105.22919101640582 },   // third corner, SF given
+  //{ 40.070954, -105.229212}, // third turn mine
+  { 40.071081016212702, -105.22919897921383 },   // ramp, SF given
+  { 40.071331970393658, -105.22946602664888 },   // fourth corner, SF given
+  //{ 40.071440, -105.229496}, 
+  //{ 40.071374969556928, -105.22978898137808 },   // start/finish line
+  { 40.071381, -105.229795 }, //start finish mine
 
+};
+  
+//double target_lat = moffet_park[0].latitude;
+//double target_long = moffet_park[0].longitude;
 
+double target_lat = sparkfun_2014[0].latitude;
+double target_long = sparkfun_2014[0].longitude;
 
 
 uint8_t deadman = 0;
@@ -95,12 +129,17 @@ void setup() {
   // This compensates for how the TWI library only wants the
   // 7 most significant bits (with the high bit padded with 0)
   slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
-  Serial.begin(9600);    //debug
+  Serial.begin(115200);    //debug
   pinMode(led, OUTPUT);      // Set the LED pin as output
   Wire.begin();
   
   //Attach GPS
-  Serial3.begin(4800);   //gps
+  uint8_t cmd[14] = {0xB5, 0x62, 0x06, 0x08, 0x06, 0x00, 0xC8, 0x00, 0x01, 0x00, 0x01, 0x00, 0xDE, 0x6A};
+
+  Serial3.begin(9600);   //gps
+  Serial3.write(cmd, 14);
+ 
+
 }
 
 void loop() {
@@ -127,7 +166,8 @@ void loop() {
   
   compass_data.append(headingValue); // adds heading value to our packet
   btooth.send(compass_data); // sends 'compass_data'
-   
+  
+  /* 
   Serial.print("Current heading: ");
   Serial.print(int (headingValue / 10));     // The whole number part of the heading
   Serial.print(".");
@@ -138,10 +178,14 @@ void loop() {
   
   Serial.print("Speed: ");
   Serial.println(motor.read());
+  */
   
   //GPS
-  while (Serial3.available() > 0)
-    gps.encode(Serial3.read());
+  while (Serial3.available() > 0) {
+    int c = Serial3.read();
+    Serial.print((char)c);
+    gps.encode(c);
+  }
     
   if (gps.location.isUpdated()){
     gps_data.append((int)(gps.location.lat() * 1000000)); // Adds Latitude
@@ -150,36 +194,55 @@ void loop() {
 
     btooth.send(gps_data); // sends 'gps_data'
         
-    Serial.print("LAT=");  Serial.println(gps.location.lat());
-    Serial.print("LONG="); Serial.println(gps.location.lng());
+    Serial.print("LAT=");  Serial.println(gps.location.lat()*1000000);
+    Serial.print("LONG="); Serial.println(gps.location.lng()*1000000);
     Serial.print("NUM_SAT=");  Serial.println(gps.satellites.value());   
     
     distance = gps.distanceBetween(
       gps.location.lat(),                  //Distance between current location and desired location (Blue Post).
       gps.location.lng(),
-      Blue_Post_Lat,
-      Blue_Post_Long);
+      target_lat,
+      target_long);
+    if (distance <= 2.5){
+      if (current_waypoint < 7){  //while position in array less than 5 go to next waypoint.
+        current_waypoint++;
+      }
+      //target_lat = moffet_park[current_waypoint].latitude;
+      //target_long = moffet_park[current_waypoint].longitude;
+      target_lat = sparkfun_2014[current_waypoint].latitude;
+      target_long = sparkfun_2014[current_waypoint].longitude;
+
+      distance = gps.distanceBetween(
+        gps.location.lat(),                  //Distance between current location and desired location (Blue Post).
+        gps.location.lng(),
+        target_lat,
+        target_long);
+    }
     
     double courseTo = gps.courseTo(
         gps.location.lat(),               //This here reads current location and writes a course to desired location (Blue Post).
         gps.location.lng(),
-        Blue_Post_Lat,
-        Blue_Post_Long);
+        target_lat,
+        target_long);
         
     desired_heading = courseTo;
     
     Serial.println(desired_heading); 
-    }
+  }
   
   
   //DO A THING
-  //GO NORTH
+  //GO FORTH
    if (autonomous != 0 && deadman != 0) {
      
-     int headingComputed = (headingValue/10);
-     headingComputed -= desired_heading;
+     int headingComputed = (headingValue/10); // range 0 to 360
+     headingComputed -= desired_heading; // we expect this to be in the range 0-360 to 360+360
+     headingComputed += (360 + 180); // add 360 so we're positive, 180 for bias
+     headingComputed %= 360; // modulo 360 brings us back into the 0 to 360 range
+     headingComputed -= 180; // remove the bias we added earlier, brings us back to -180 to 180
      
-      if (headingComputed < 180 && headingComputed > 0) {
+      //if ( headingComputed < 180 && headingComputed > 0 ) {
+      if ( headingComputed > 0 ) {
         // turn left
         if (headingComputed >= 24) {
           steering.write( STEER_NEUTRAL - 24 );
@@ -187,7 +250,10 @@ void loop() {
           steering.write( STEER_NEUTRAL - headingComputed );
         }
       } else {
-        headingComputed = headingComputed - 360;
+        /*
+        if( headingComputed > 0 ){
+          headingComputed = headingComputed - 360;
+        }*/
         
         // turn right
         if (headingComputed < -24) {
@@ -197,10 +263,12 @@ void loop() {
         }
       }
 
-      if (distance <= 3.0){
-        motor.write(MOTOR_NEUTRAL); // stop
+      if (distance <= 3){
+        motor.write(MOTOR_NEUTRAL+6); // stop
+      } else if (distance >3 && distance <= 8){
+        motor.write(MOTOR_NEUTRAL + 8);
       } else {
-        motor.write( MOTOR_NEUTRAL + 8);  //go
+        motor.write( MOTOR_NEUTRAL + 12);  //go
       }
    }
 }
